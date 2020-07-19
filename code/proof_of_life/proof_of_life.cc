@@ -8,6 +8,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <omnetpp.h>
+#include <map>
+#include <iostream>
+#include <functional>
+
 
 using namespace omnetpp;
 using namespace std;
@@ -17,7 +21,8 @@ class fully_connected : public cSimpleModule
     private:
         int r;//round number
         int nodenum; //the index of the node
-        char *sigs;
+        map<string,string> mapSigs;
+        hash<string> str_hash;
         simtime_t maxdelay;//the length of round r
         simtime_t curtime;
         cMessage *delayMsg;
@@ -34,8 +39,8 @@ class fully_connected : public cSimpleModule
         virtual cMessage *generateMsg();
         virtual cMessage *Copymsg(cMessage *msg);
         virtual int checkhbeats(cMessage *msg);
-        virtual char *sig();
-        virtual char *addsig();
+        virtual void sig(string name);
+        virtual void addsig();
 };
 
 Define_Module(fully_connected);
@@ -53,8 +58,9 @@ cMessage *fully_connected::generateMsg()
     curtime = simTime();
     char msgname[20];
     nodenum = getIndex();
+    const char *name = getName();
     //sigs = sig();
-    sprintf(msgname, "hb:round-%d node-%d sigs-%s",r,nodenum,sigs);
+    sprintf(msgname, "hb:round-%d node-%d%s sigs-%s",r,nodenum,name,mapSigs[name].c_str());
     cMessage *msg = new cMessage(msgname);
     return msg;
 }
@@ -71,12 +77,15 @@ int fully_connected::checkhbeats(cMessage *msg)
     return 1;
 }
 
-char *fully_connected::sig(){//signature for index==?
-    return "sig";
+void fully_connected::sig(string name){//signature for index==?
+    mapSigs[name] = str_hash(name);
 }
 
-char *fully_connected::addsig(){
-    return "addedsigs";
+ void fully_connected::addsig(){
+    const char *name = getName();
+    if(mapSigs.find(name) != mapSigs.end()) {
+        mapSigs[name] = str_hash(name);
+    }
 }
 
 
@@ -86,35 +95,37 @@ void fully_connected::initialize()// one time or every round?
 {
     r = 0;
     maxdelay = 1.0;
+
     count = 0;
     cMessage *copyhbeats;
     cMessage *hbeats;
     duration = par("Duration");
     delayMsg = new cMessage("round over");
-    if(getIndex()==0){
+    EV<<"index:         "<<getIndex()<<"name:    "<<getName()<<"\n";
+    //if(strcmp(getName(),"node1")==0){//
 
-            sigs = sig();
-            EV<<"sending Heartbeat\n";
-            hbeats = generateMsg();
-            copyhbeats = Copymsg(hbeats);
-            forwardMessage(copyhbeats);
-            scheduleAt(simTime()+maxdelay, delayMsg);
-            r++;
+     EV<<"sending Heartbeat\n";
+     hbeats = generateMsg();
+     sig(getName());//
+     copyhbeats = Copymsg(hbeats);
+     forwardMessage(copyhbeats);
+     scheduleAt(simTime()+maxdelay, delayMsg);//another one end of period
+     r++;
 
-    }
+    //}
 }
 
 
 void fully_connected::handleMessage(cMessage *msg)
 {
-    if(uniform(0,1)<0.2 )
+    if(uniform(0,1)<0.2)
     {
         EV << "Losing message";
         bubble("message lost");
         delete msg;
     }
     else{
-        if (getIndex() == 0) {
+        if (strcmp(getName(),"node1")==0) {
             EV << "Echo received \n";
             count++;
             delete msg;
@@ -122,7 +133,7 @@ void fully_connected::handleMessage(cMessage *msg)
         else {
             int checkresult = checkhbeats(msg);
             if(checkresult==1){//real heatbeats
-                sigs = addsig();
+                addsig();
                 cMessage *echo = generateMsg();
                 cMessage *copyecho = Copymsg(echo);
                 forwardMessage(copyecho);
