@@ -4,15 +4,17 @@
 #include <iostream>
 using namespace std;
 using std::map;
-map<string, string> namemap;
+map<string, int> namemap;
 
 int main(){
-namemap["a"]="aa";
-namemap["b"]="bb";
-namemap["c"]="cc";
-if(namemap.find("d") != namemap.end()) { 
-    std::cout<<namemap["a"];
-}
+namemap["a"]=1;
+namemap["b"]=2;
+namemap["c"]=3;
+// if(namemap.find("a") != namemap.end()) { 
+//     std::cout<<namemap["a"];
+// }
+std::cout<<"dasd";
+std::cout<<namemap["a"];
 }
 
 

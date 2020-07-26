@@ -1,12 +1,12 @@
 #
-# OMNeT++/OMNEST Makefile for proof_of_life
+# OMNeT++/OMNEST Makefile for testproject
 #
 # This file was generated with the command:
 #  opp_makemake -f --deep -O out -I.
 #
 
 # Name of target to be created (-o option)
-TARGET = proof_of_life$(D)$(EXE_SUFFIX)
+TARGET = testproject$(D)$(EXE_SUFFIX)
 TARGET_DIR = .
 
 # User interface (uncomment one) (-u option)
@@ -30,11 +30,11 @@ PROJECTRELATIVE_PATH =
 O = $(PROJECT_OUTPUT_DIR)/$(CONFIGNAME)/$(PROJECTRELATIVE_PATH)
 
 # Object files for local .cc, .msg and .sm files
-OBJS = $O/proof_of_life.o $O/echos_m.o $O/hbeats_m.o
+OBJS = $O/proof_of_life.o $O/echo_m.o $O/hbeats_m.o
 
 # Message files
 MSGFILES = \
-    echos.msg \
+    echo.msg \
     hbeats.msg
 
 # SM files

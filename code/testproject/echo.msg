@@ -1,0 +1,3 @@
+message echos{
+    int echonum;
+}

@@ -11,8 +11,8 @@ int main(int argc, char **argv)
     std::cout << "map contains key world!\n";
   // retrieve
   std::cout << m["hello"] << '\n';
-  std::map<std::string, int>::iterator i = m.find("hello");
-  assert(i != m.end());
-  std::cout << "Key: " << i->first << " Value: " << i->second << '\n';
+  // std::map<std::string, int>::iterator i = m.find("hello");
+  // assert(i != m.end());
+  // std::cout << "Key: " << i->first << " Value: " << i->second << '\n';
   return 0;
 }

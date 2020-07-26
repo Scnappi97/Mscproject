@@ -11,7 +11,10 @@
 #include <map>
 #include <iostream>
 #include <functional>
+#include <math.h>
 
+#include "hbeats_m.h"
+#include "echos_m.h"
 
 using namespace omnetpp;
 using namespace std;
@@ -20,99 +23,76 @@ class fully_connected : public cSimpleModule
 {
     private:
         int r;//round number
-        int nodenum; //the index of the node
         map<string,string> mapSigs;
+        //map<string,int> receivermap;
         hash<string> str_hash;
+        int delr;
+        int count[10];//count echos
         simtime_t maxdelay;//the length of round r
         simtime_t curtime;
-        cMessage *delayMsg;
-        int count;// num of echos including self
+        cMessage *roundMsg;
         int duration;//maximum round
 
     public:
         fully_connected();
         virtual ~fully_connected();
     protected:
-        virtual void forwardMessage(cMessage *msg);
+        virtual void forwardMessage(cMessage *msg, simtime_t delay);
         virtual void initialize() override;
-        virtual void handleMessage(cMessage *msg) override;\
-        virtual cMessage *generateMsg();
-        virtual cMessage *Copymsg(cMessage *msg);
-        virtual int checkhbeats(cMessage *msg);
-        virtual void sig(string name);
-        virtual void addsig();
+        virtual void handleMessage(cMessage *msg) override;
+        //virtual cMessage *generateMsg();
+        //virtual cMessage *Copymsg(cMessage *msg);
+        //virtual int checkhbeats(cMessage *msg);
+        virtual void sendhbeats(int hbeatR, simtime_t delay);
+        virtual void sendecho(int echoR, simtime_t delay, string echoW);
+
 };
 
 Define_Module(fully_connected);
 
 fully_connected::fully_connected(){
-    delayMsg = NULL;
+    roundMsg = NULL;
 }
 fully_connected::~fully_connected(){
-    cancelAndDelete(delayMsg);
+    cancelAndDelete(roundMsg);
 }
 
 
-cMessage *fully_connected::generateMsg()
-{
-    curtime = simTime();
-    char msgname[20];
-    nodenum = getIndex();
-    const char *name = getName();
-    //sigs = sig();
-    sprintf(msgname, "hb:round-%d node-%d%s sigs-%s",r,nodenum,name,mapSigs[name].c_str());
-    cMessage *msg = new cMessage(msgname);
-    return msg;
+
+
+void fully_connected::sendhbeats(int hbeatR, simtime_t delay){
+    char Msgname[10];
+    sprintf(Msgname, "heartbeats of  %s",getName());
+    hbeats *hbeatm = new hbeats(Msgname, 10);
+    hbeatm->setHbeatname(getName());
+    hbeatm->setHbeatnum(hbeatR);//send hbeat round
+    forwardMessage(hbeatm, delay);
 }
 
-cMessage *fully_connected::Copymsg(cMessage *msg)
-{
-    cMessage *copy = (cMessage *)msg->dup();
-    return copy;
+void fully_connected::sendecho(int echoR, simtime_t delay, string echoW){
+    char Msgname[10];
+    sprintf(Msgname, "echo sent by : %s", getName());
+    echos *echom = new echos(Msgname, 20);
+    echom->setEchonum(echoR);//send echo round
+    echom->setSourcename(echoW.c_str());
+    forwardMessage(echom, delay);
 }
-
-
-int fully_connected::checkhbeats(cMessage *msg)
-{
-    return 1;
-}
-
-void fully_connected::sig(string name){//signature for index==?
-    mapSigs[name] = str_hash(name);
-}
-
- void fully_connected::addsig(){
-    const char *name = getName();
-    if(mapSigs.find(name) != mapSigs.end()) {
-        mapSigs[name] = str_hash(name);
-    }
-}
-
 
 
 
 void fully_connected::initialize()// one time or every round?
 {
     r = 0;
-    maxdelay = 1.0;
-
-    count = 0;
-    cMessage *copyhbeats;
-    cMessage *hbeats;
-    duration = par("Duration");
-    delayMsg = new cMessage("round over");
-    EV<<"index:         "<<getIndex()<<"name:    "<<getName()<<"\n";
-    //if(strcmp(getName(),"node1")==0){//
-
-     EV<<"sending Heartbeat\n";
-     hbeats = generateMsg();
-     sig(getName());//
-     copyhbeats = Copymsg(hbeats);
-     forwardMessage(copyhbeats);
-     scheduleAt(simTime()+maxdelay, delayMsg);//another one end of period
-     r++;
-
-    //}
+    delr = 3;
+    maxdelay = 1.0;//length of a round
+    duration = 5;//time window period
+    curtime = simTime();
+    count[getIndex()]=0;
+    EV<<"index:"<<getIndex()<<"   "<<"name:"<<getName()<<"\n";
+    EV<<"sending Heartbeat\n";
+    sendhbeats(r,0);//at round r send hbeat r=0, delay =0
+    roundMsg = new cMessage("round over");
+    scheduleAt(curtime + maxdelay, roundMsg);//send self round over
 }
 
 
@@ -125,37 +105,53 @@ void fully_connected::handleMessage(cMessage *msg)
         delete msg;
     }
     else{
-        if (strcmp(getName(),"node1")==0) {
-            EV << "Echo received \n";
-            count++;
-            delete msg;
-        }
-        else {
-            int checkresult = checkhbeats(msg);
-            if(checkresult==1){//real heatbeats
-                addsig();
-                cMessage *echo = generateMsg();
-                cMessage *copyecho = Copymsg(echo);
-                forwardMessage(copyecho);
-                delete msg;
-            }//else?
+        if(msg==roundMsg){// send hbeat or send echo
+        EV<<"round over";
+        scheduleAt(simTime()+maxdelay, roundMsg);
+        r = r+1;
+        if(r<duration){
+            EV <<r ;
+            sendhbeats(r,0);
+            }
+        delete msg;
+      }
+        if(msg->getKind()==10){//receive the hbeats
+                simtime_t rectime = simTime();
+                double p = (rectime - curtime).dbl();
+                double m = maxdelay.dbl();
+                int t = p/m;
+                simtime_t delaytime = curtime + (simtime_t)(t+1) - rectime;
+                hbeats *hbeatm = check_and_cast<hbeats *>(msg);
+                int hbeatR = hbeatm->getHbeatnum();
+                string sourcename = hbeatm->getHbeatname();
+                if(r <= (hbeatR + delr)){
+                    sendecho(r,delaytime,sourcename);
+                    delete msg;
+                }
+       }
+        if(msg->getKind()==20){
+            echos *echom = check_and_cast<echos *>(msg);
+            string name = echom->getSourcename();
+            if(name == getName()){
+                count[getIndex()]+=1;
+                EV<< count ;
+            }
         }
     }
-
 }
 
-void fully_connected::forwardMessage(cMessage *msg)
+void fully_connected::forwardMessage(cMessage *msg, simtime_t delay)
 {
 
     int n = gateSize("out");
     cMessage *copymsg;
-
     for(int i=0; i<n; i=i+1)
     {
-        copymsg = Copymsg(msg);
+        copymsg = (cMessage *)msg->dup();
         EV << "Forwarding message " << copymsg << " on port out[" << i << "]\n";
-        send(copymsg, "out", i);
+        sendDelayed(copymsg, delay, "out", i);
     }
+    delete msg;
 }
 
 
