@@ -32,6 +32,7 @@ class fully_connected : public cSimpleModule
         simtime_t curtime;
         cMessage *roundMsg;
         int duration;//maximum round
+        short hbeatkind = 10;
 
     public:
         fully_connected();
@@ -63,7 +64,7 @@ fully_connected::~fully_connected(){
 void fully_connected::sendhbeats(int hbeatR, simtime_t delay){
     char Msgname[10];
     sprintf(Msgname, "heartbeats of  %s",getName());
-    hbeats *hbeatm = new hbeats(Msgname, 10);
+    hbeats *hbeatm = new hbeats(Msgname, hbeatkind);
     hbeatm->setHbeatname(getName());
     hbeatm->setHbeatnum(hbeatR);//send hbeat round
     forwardMessage(hbeatm, delay);
@@ -71,7 +72,7 @@ void fully_connected::sendhbeats(int hbeatR, simtime_t delay){
 
 void fully_connected::sendecho(int echoR, simtime_t delay, string echoW){
     char Msgname[10];
-    sprintf(Msgname, "echo sent by : %s", getName());
+    sprintf(Msgname, "echo to %s sent by : %s ", echoW.c_str(), getName());
     echos *echom = new echos(Msgname, 20);
     echom->setEchonum(echoR);//send echo round
     echom->setSourcename(echoW.c_str());
@@ -89,7 +90,7 @@ void fully_connected::initialize()// one time or every round?
     curtime = simTime();
     count[getIndex()]=0;
     EV<<"index:"<<getIndex()<<"   "<<"name:"<<getName()<<"\n";
-    EV<<"sending Heartbeat\n";
+    EV<<"sending Heartbeat"<<"\n";
     sendhbeats(r,0);//at round r send hbeat r=0, delay =0
     roundMsg = new cMessage("round over");
     scheduleAt(curtime + maxdelay, roundMsg);//send self round over
@@ -106,21 +107,23 @@ void fully_connected::handleMessage(cMessage *msg)
     }
     else{
         if(msg==roundMsg){// send hbeat or send echo
-        EV<<"round over";
+        EV<<"round over"<<"\n";
         scheduleAt(simTime()+maxdelay, roundMsg);
         r = r+1;
         if(r<duration){
-            EV <<r ;
+            EV <<"round"<< r<<"\n" ;
             sendhbeats(r,0);
             }
-        delete msg;
+        //delete msg;
+        cancelAndDelete(msg);
       }
-        if(msg->getKind()==10){//receive the hbeats
+        if(msg->getKind()==hbeatkind){//receive the hbeats
+                EV<<"receive hbeats"<<"\n";
                 simtime_t rectime = simTime();
                 double p = (rectime - curtime).dbl();
                 double m = maxdelay.dbl();
                 int t = p/m;
-                simtime_t delaytime = curtime + (simtime_t)(t+1) - rectime;
+                simtime_t delaytime = curtime + (simtime_t)((t+1)*m) - rectime;
                 hbeats *hbeatm = check_and_cast<hbeats *>(msg);
                 int hbeatR = hbeatm->getHbeatnum();
                 string sourcename = hbeatm->getHbeatname();
@@ -130,11 +133,12 @@ void fully_connected::handleMessage(cMessage *msg)
                 }
        }
         if(msg->getKind()==20){
+            EV<<"get echo";
             echos *echom = check_and_cast<echos *>(msg);
             string name = echom->getSourcename();
             if(name == getName()){
                 count[getIndex()]+=1;
-                EV<< count ;
+                EV<< "count of echos"<<  count <<"\n";
             }
         }
     }
@@ -145,6 +149,7 @@ void fully_connected::forwardMessage(cMessage *msg, simtime_t delay)
 
     int n = gateSize("out");
     cMessage *copymsg;
+    EV<<"delay"<<delay<<"\n";
     for(int i=0; i<n; i=i+1)
     {
         copymsg = (cMessage *)msg->dup();
