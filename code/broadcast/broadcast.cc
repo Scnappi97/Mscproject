@@ -23,7 +23,6 @@ class fully_connected : public cSimpleModule
         map<string,string> mapSigs;
         hash<string> str_hash;
         int delr;
-        int count[10];//count echos
         simtime_t maxdelay;//the length of round r
         simtime_t startime;
         cMessage *roundMsg;
@@ -32,12 +31,18 @@ class fully_connected : public cSimpleModule
         short echokind = 20;
         short bcastkind = 30;
         tuple<int, string>Recho;//round,value
-        map<string,map<string,Recho>>Rechomap;//pj pi
+        map<string,map<string,Recho>>Rechomap;//pj <pi(round val)>
         tuple<string,string,int,string>bcastuple;//sig, pi,round,val
         vector<string>signedby;
         map<string,signedby>bcastmap;//target, signedby        //TODO ?
         tuple<string,int>deliver;//name,round
         map<string,deliver>delivermap;
+
+        map<string, map<int,int>>countmap;//name,map
+        map<string, int>statusmap;//0==crash
+        map<string, int>crashmap;
+        bool crashflag;
+
 
     public:
         fully_connected();
@@ -46,9 +51,6 @@ class fully_connected : public cSimpleModule
         virtual void forwardMessage(cMessage *msg, simtime_t delay);
         virtual void initialize() override;
         virtual void handleMessage(cMessage *msg) override;
-        //virtual cMessage *generateMsg();
-        //virtual cMessage *Copymsg(cMessage *msg);
-        //virtual int checkhbeats(cMessage *msg);
         virtual void sendhbeats(int hbeatR, simtime_t delay);
         virtual void sendecho(int echoR, simtime_t delay, string echoW);
         virtual void fully_connected::sendbroadcast(int round, string value);
@@ -68,11 +70,11 @@ fully_connected::~fully_connected(){
 
 
 
-void fully_connected::sendhbeats(int hbeatR, simtime_t delay){
+void fully_connected::sendhbeats(int hbeatR, simtime_t delay,string name){
     char Msgname[10];
-    sprintf(Msgname, "heartbeats of  %s",getName());
+    sprintf(Msgname, " HB %s round %d",name.c_str(),hbeatR);
     hbeats *hbeatm = new hbeats(Msgname, hbeatkind);
-    hbeatm->setHbeatname(getName());
+    hbeatm->setHbeatname(name.c_str());
     hbeatm->setHbeatnum(hbeatR);//send hbeat round
     forwardMessage(hbeatm, delay);
 }
@@ -89,22 +91,26 @@ void fully_connected::sendecho(simtime_t delay, string source, string val){
     forwardMessage(echom, delay);
 }
 
-void fully_connected::sendbroadcast(int round, string value){
+void fully_connected::sendbroadcast(int round, string value, string name){
     char Msgname[20];
     sprintf(Msgname,"broadcast: process %s, round %d, value %s", getName(), round, value.c_str());
     bcast *bcastm = new bcast(Msgname,30);
-    bcastm->setSourcename(getName());
+    bcastm->setSourcename(name.c_str());
     bcastm->setRound(round);
     bcastm->setValue(value.c_str());
     forwardMessage(bcastm,0);
 }
 
-void fully_connected::delivermsg(string p, string val, string *sigs){//TODO all sigs
-    tuple<string, int>t(p,r);
+void fully_connected::delivermsg(string p, string val){
+    tuple<string, int>t(p,r);//pi and r
     delivermap[getName()]=t;
     simtime_t deltime = delaytime();
     char Msgname[20];
-    sprintf(Msgname,"deliver: process %s,  value %s, sigs %s", p, value.c_str());//
+    sprintf(Msgname,"deliver: process %s,  value %s", p, value.c_str());//
+    deliver *deliverm = new deliver(Msgname,40);
+    deliverm->setSourcename(p);
+    deliverm->setValue(val.c_str());
+    forwardMessage(deliverm, deltime);
 }
 
 
@@ -127,13 +133,17 @@ void fully_connected::initialize()// one time or every round?
     maxdelay = 1.0;//length of a round
     duration = 5;//time window period
     startime = simTime();
-    count[getIndex()]=0;
+    countmap[getName()][r]=0;
+    statusmap[getName()]=1;
+    crashmap[getName()]=15;
+    crashflag = false;
+
     if(getName()=="node1"){
-        string value = "broadcasting";
+        string value = "vvvvvvvalueeeeeeee";
         sendbroadcast(r,value);
     }
     else{
-        sendhbeats(r,0);//at round r send hbeat r=0, delay =0
+        sendhbeats(r,0,getName());//at round r send hbeat r=0, delay =0
     }
     roundMsg = new cMessage("round over");
     scheduleAt(curtime + maxdelay, roundMsg);//send self round over
@@ -142,35 +152,53 @@ void fully_connected::initialize()// one time or every round?
 
 void fully_connected::handleMessage(cMessage *msg)
 {
-    if(uniform(0,1)<0.2)
-    {
-        EV << "Losing message";
-        bubble("message lost");
-        delete msg;
-    }
-    else{
-        if(msg==roundMsg){// send hbeat or send echo
-        EV<<"round over"<<"\n";
-        scheduleAt(simTime()+maxdelay, roundMsg);
+    if(msg==roundMsg){
         r = r+1;
-        if(r<duration){
-            EV <<"round"<< r<<"\n" ;
-            sendhbeats(r,0);
+        EV<<"round over"<<"\n";
+        roundMsg = new cMessage("round over");
+        scheduleAt(simTime()+maxdelay, roundMsg);
+        if(r>duration){
+            EV<<"*****************************round "<<r<<"\n";
+            int rend = r - 1;
+            int rstart = r - 1 - delr;
+            int counts=0;
+            for(int i=rstart;i<=rend;i++){
+                counts+=countmap[getName()][i];
+                EV<<"rstart "<<rstart<<" rend "<<rend<<"count"<<countmap[getName()][i]<<"\n";
             }
-        //delete msg;
-        cancelAndDelete(msg);
-      }
-        if(msg->getKind()==hbeatkind){//receive the hbeats
-                EV<<"receive hbeats"<<"\n";
-                simtime_t deltime = delaytime();
-                hbeats *hbeatm = check_and_cast<hbeats *>(msg);
-                int hbeatR = hbeatm->getHbeatnum();
-                string sourcename = hbeatm->getHbeatname();
-                string val = "";
-                if(r <= (hbeatR + delr)){
-                    sendecho(deltime,sourcename,val);
-                    delete msg;
+            EV<<"COUNTS"<<counts<<"\n";
+            if(counts<3){
+                bubble("crash self");
+                EV<<"crash self\n";
+                statusmap[getName()]=0;
+                if(crashflag==false){
+                    crashflag =true;
+                    crashmap[getName()]=r;
                 }
+            }
+        }
+        sendhbeats(r,0,getName());
+
+    delete msg;
+      }
+    if(msg->getKind()==hbeatkind){//receive the hbeats
+            simtime_t deltime = delaytime();
+            hbeats *hbeatm = check_and_cast<hbeats *>(msg);
+            int hbeatR = hbeatm->getHbeatnum();
+            string sourcename = hbeatm->getHbeatname();
+            if(sourcename==getName()){
+                    countmap[getName()][r]+=1;
+                    bubble("get echo");
+                    EV<<"get echo\n"<<"round"<<r;
+                    EV<<getName()<< " COUNT "<< countmap[getName()][r] <<"\n";
+                    delete msg;
+            }else if(r <= (hbeatR + delr)){
+                    bubble("receive hbeats");
+                    EV<<getName()<<" receive hbeats at round "<<r<<"\n";
+                    EV<<"content"<<": "<<sourcename<<" r: "<<hbeatR<<"\n";
+                    sendhbeats(hbeatR,deltime,sourcename);
+                    delete msg;
+                     }
        }
         if(msg->getKind()==echokind){
             EV<<"get echo\n";
@@ -178,8 +206,7 @@ void fully_connected::handleMessage(cMessage *msg)
             string name = echom->getSourcename();
             int round = echom->getRound();
             string val = echom->getValue();
-            map<>
-            //Todo aggregate sigs
+
             if(name == getName()){
                 count[getIndex()]+=1;
                 EV<< "count of echos"<<  count <<"\n";
@@ -228,7 +255,6 @@ void fully_connected::forwardMessage(cMessage *msg, simtime_t delay)
     for(int i=0; i<n; i=i+1)
     {
         copymsg = (cMessage *)msg->dup();
-        EV << "Forwarding message " << copymsg << " on port out[" << i << "]\n";
         sendDelayed(copymsg, delay, "out", i);
     }
     delete msg;

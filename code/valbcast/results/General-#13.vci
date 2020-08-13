@@ -1,0 +1,27 @@
+file 1031 1597176091                                            
+version 2
+run General-13-20200811-21:01:31-15184
+attr configname General
+attr datetime 20200811-21:01:31
+attr experiment General
+attr inifile omnetpp.ini
+attr iterationvars ""
+attr iterationvarsf ""
+attr measurement ""
+attr network fcnetwork
+attr processid 15184
+attr repetition 13
+attr replication #13
+attr resultdir results
+attr runnumber 13
+attr seedset 6
+
+vector 0 fcnetwork.node1 CountEchos ETV
+vector 1 fcnetwork.node2 CountEchos ETV
+vector 2 fcnetwork.node3 CountEchos ETV
+vector 3 fcnetwork.node4 CountEchos ETV
+0	541 122 13 3793 1 10 10 0 45 303 12681
+1	663 122 14 3794 1 10 10 0 45 303 12681
+2	785 122 15 3795 1 10 10 0 45 303 12681
+3	907 122 16 3796 1 10 10 0 45 303 12681
+

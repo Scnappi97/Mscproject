@@ -1,0 +1,62 @@
+version 2
+run General-22-20200811-20:42:54-10952
+attr configname General
+attr datetime 20200811-20:42:54
+attr experiment General
+attr inifile omnetpp.ini
+attr iterationvars ""
+attr iterationvarsf ""
+attr measurement ""
+attr network fcnetwork
+attr processid 10952
+attr repetition 22
+attr replication #22
+attr resultdir results
+attr runnumber 22
+attr seedset 22
+
+vector 0 fcnetwork.node1 CountEchos ETV
+vector 1 fcnetwork.node2 CountEchos ETV
+vector 2 fcnetwork.node3 CountEchos ETV
+vector 3 fcnetwork.node4 CountEchos ETV
+0	13	1	0
+0	47	2	0
+0	93	3	1
+0	142	4	0
+0	194	5	1
+0	237	6	0
+0	286	7	0
+0	329	8	0
+0	363	9	0
+0	409	10	0
+1	14	1	0
+1	48	2	0
+1	94	3	1
+1	143	4	1
+1	195	5	1
+1	238	6	2
+1	287	7	4
+1	330	8	1
+1	364	9	0
+1	410	10	0
+2	15	1	0
+2	49	2	1
+2	95	3	1
+2	144	4	1
+2	196	5	0
+2	239	6	0
+2	288	7	0
+2	331	8	0
+2	365	9	0
+2	411	10	0
+3	16	1	0
+3	50	2	0
+3	96	3	3
+3	145	4	1
+3	197	5	0
+3	240	6	1
+3	289	7	0
+3	332	8	2
+3	366	9	0
+3	412	10	0
+

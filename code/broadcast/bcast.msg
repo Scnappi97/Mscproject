@@ -1,4 +1,4 @@
-message bcasts{
+message bcast{
 	string sourcename;
 	int round;
 	string value;

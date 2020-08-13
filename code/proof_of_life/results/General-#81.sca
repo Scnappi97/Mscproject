@@ -1,0 +1,22 @@
+version 2
+run General-81-20200811-20:42:55-10952
+attr configname General
+attr datetime 20200811-20:42:55
+attr experiment General
+attr inifile omnetpp.ini
+attr iterationvars ""
+attr iterationvarsf ""
+attr measurement ""
+attr network fcnetwork
+attr processid 10952
+attr repetition 81
+attr replication #81
+attr resultdir results
+attr runnumber 81
+attr seedset 81
+
+scalar fcnetwork.node1 #status 10
+scalar fcnetwork.node2 #status 6
+scalar fcnetwork.node3 #status 8
+scalar fcnetwork.node4 #status 15
+
